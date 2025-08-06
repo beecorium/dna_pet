@@ -11,38 +11,50 @@ st.set_page_config(
 )
 
 # 사이드바 설정
-st.sidebar.title("🐾펫고객관리시스템")
+st.sidebar.title("🐾펫고객관리시스템(PCMS)")
 st.sidebar.markdown("---")
 
 # 메뉴 선택
 menu = st.sidebar.selectbox(
     "메뉴 선택",
-    ["📊 대시보드", "🎯 개인 고객 분석", "📈 주기상향 추천", "💰 수익 예측"]
+    ["📊 대시보드", "🎯 개인 고객 분석", "📈 주기상향 추천", "💰 수익 예측", "📦 재고관리"]
 )
 
 # 펫 크기 및 연령대 추정 함수
 def estimate_pet_profile(pet_categories, pet_spend):
-    """펫 카테고리와 지출액으로 반려동물 크기/연령 추정"""
-    profiles = []
+    """펫 카테고리와 지출액으로 반려동물 크기/연령 추정 (하나만 반환)"""
+    # 강아지 우선 체크
+    if 'DOG-' in pet_categories:
+        # 강아지 크기 추정 (지출액 기준)
+        if pet_spend < 30:
+            return "소형견"
+        elif pet_spend < 80:
+            return "중형견" 
+        else:
+            return "대형견"
     
-    categories = pet_categories.split(', ')
-    for category in categories:
-        if 'DOG-' in category:
-            # 강아지 크기 추정 (지출액 기준)
-            if pet_spend < 30:
-                profiles.append("소형견")
-            elif pet_spend < 80:
-                profiles.append("중형견") 
-            else:
-                profiles.append("대형견")
-        elif 'CAT-' in category:
-            # 고양이 연령대 추정 (카테고리 기준)
-            if '간식' in category or '장난감' in category:
-                profiles.append(np.random.choice(["새끼고양이", "성묘"], p=[0.3, 0.7]))
-            else:
-                profiles.append("성묘")
+    # 고양이 체크
+    elif 'CAT-' in pet_categories:
+        # 고양이 연령대 추정 (카테고리 기준)
+        if '간식' in pet_categories or '장난감' in pet_categories:
+            return np.random.choice(["새끼고양이", "성묘"], p=[0.3, 0.7])
+        else:
+            return "성묘"
     
-    return list(set(profiles)) if profiles else ["미확인"]
+    # 기타 반려동물
+    elif 'OTHER-' in pet_categories:
+        if '가금류' in pet_categories:
+            return "소형조류"
+        elif '물고기' in pet_categories:
+            return "관상어"
+        elif '햄스터' in pet_categories:
+            return "소동물"
+        elif '파충류' in pet_categories:
+            return "파충류"
+        else:
+            return "기타동물"
+    
+    return "미확인"
 
 def estimate_household_size(total_spend):
     """총 지출액으로 가구수 추정"""
@@ -212,7 +224,7 @@ def load_sample_data():
         household_sizes.append(estimate_household_size(total_spend[i]))
         
         # 펫 프로필 추정
-        pet_profiles.append(', '.join(estimate_pet_profile(category_str, pet_spend[i])))
+        pet_profiles.append(estimate_pet_profile(category_str, pet_spend[i]))
     
     pet_customers = pd.DataFrame({
         'household_key': household_keys,
@@ -787,6 +799,232 @@ elif menu == "💰 수익 예측":
     for insight in insights:
         st.info(insight)
 
+# 재고관리 페이지
+elif menu == "📦 재고관리":
+    st.title("📦 재고관리 시스템")
+    
+    # 펫 제품 재고 데이터 생성
+    @st.cache_data
+    def load_inventory_data():
+        np.random.seed(42)
+        
+        # 펫 제품 카테고리별 재고 데이터
+        pet_products = [
+            # 강아지 제품
+            {"category": "DOG-사료/간식", "product_name": "프리미엄 건식사료 (소형견용)", "current_stock": 85, "min_stock": 50, "max_stock": 200, "unit_price": 45.99, "supplier": "펫푸드코리아"},
+            {"category": "DOG-사료/간식", "product_name": "프리미엄 건식사료 (중형견용)", "current_stock": 120, "min_stock": 80, "max_stock": 300, "unit_price": 65.99, "supplier": "펫푸드코리아"},
+            {"category": "DOG-사료/간식", "product_name": "프리미엄 건식사료 (대형견용)", "current_stock": 45, "min_stock": 60, "max_stock": 250, "unit_price": 89.99, "supplier": "펫푸드코리아"},
+            {"category": "DOG-사료/간식", "product_name": "기능성 관절 간식", "current_stock": 150, "min_stock": 100, "max_stock": 400, "unit_price": 25.99, "supplier": "헬시펫"},
+            {"category": "DOG-사료/간식", "product_name": "습식사료 (토핑용)", "current_stock": 200, "min_stock": 120, "max_stock": 500, "unit_price": 3.99, "supplier": "프레쉬펫"},
+            {"category": "DOG-건강관리/영양제", "product_name": "종합 비타민", "current_stock": 75, "min_stock": 50, "max_stock": 150, "unit_price": 35.99, "supplier": "펫헬스"},
+            {"category": "DOG-건강관리/영양제", "product_name": "관절 건강 보조제", "current_stock": 30, "min_stock": 40, "max_stock": 120, "unit_price": 55.99, "supplier": "펫헬스"},
+            {"category": "DOG-장난감/액세서리", "product_name": "로프 장난감", "current_stock": 180, "min_stock": 100, "max_stock": 300, "unit_price": 12.99, "supplier": "펫토이"},
+            {"category": "DOG-목줄/하네스/이동장", "product_name": "안전 하네스 (중형)", "current_stock": 95, "min_stock": 80, "max_stock": 200, "unit_price": 29.99, "supplier": "펫기어"},
+            
+            # 고양이 제품
+            {"category": "CAT-사료/간식", "product_name": "연령별 맞춤 사료 (새끼고양이)", "current_stock": 110, "min_stock": 80, "max_stock": 250, "unit_price": 42.99, "supplier": "캣푸드프로"},
+            {"category": "CAT-사료/간식", "product_name": "연령별 맞춤 사료 (성묘)", "current_stock": 165, "min_stock": 120, "max_stock": 300, "unit_price": 39.99, "supplier": "캣푸드프로"},
+            {"category": "CAT-사료/간식", "product_name": "헤어볼 케어 간식", "current_stock": 85, "min_stock": 70, "max_stock": 200, "unit_price": 18.99, "supplier": "캣케어"},
+            {"category": "CAT-사료/간식", "product_name": "동결건조 간식", "current_stock": 25, "min_stock": 50, "max_stock": 150, "unit_price": 22.99, "supplier": "캣케어"},
+            {"category": "CAT-모래/위생용품", "product_name": "응고형 벤토나이트 모래", "current_stock": 200, "min_stock": 150, "max_stock": 400, "unit_price": 15.99, "supplier": "클린캣"},
+            {"category": "CAT-모래/위생용품", "product_name": "무향 두부모래", "current_stock": 140, "min_stock": 100, "max_stock": 300, "unit_price": 18.99, "supplier": "에코캣"},
+            {"category": "CAT-모래/위생용품", "product_name": "자동급식기", "current_stock": 35, "min_stock": 30, "max_stock": 80, "unit_price": 89.99, "supplier": "스마트펫"},
+            {"category": "CAT-건강관리/영양제", "product_name": "고양이 종합영양제", "current_stock": 60, "min_stock": 50, "max_stock": 120, "unit_price": 32.99, "supplier": "캣헬스"},
+            {"category": "CAT-장난감/액세서리", "product_name": "깃털 장난감", "current_stock": 220, "min_stock": 150, "max_stock": 400, "unit_price": 8.99, "supplier": "캣플레이"},
+            
+            # 기타 동물 제품
+            {"category": "OTHER-가금류용 사료 및 용품", "product_name": "소형조류 전용사료", "current_stock": 75, "min_stock": 50, "max_stock": 150, "unit_price": 25.99, "supplier": "버드케어"},
+            {"category": "OTHER-물고기/어항용품", "product_name": "열대어 사료", "current_stock": 120, "min_stock": 80, "max_stock": 200, "unit_price": 12.99, "supplier": "아쿠아라이프"},
+            {"category": "OTHER-햄스터/소동물용품", "product_name": "햄스터 전용사료", "current_stock": 90, "min_stock": 60, "max_stock": 180, "unit_price": 15.99, "supplier": "스몰펫"},
+        ]
+        
+        return pd.DataFrame(pet_products)
+    
+    inventory_df = load_inventory_data()
+    
+    # 재고 상태 계산
+    inventory_df['stock_status'] = inventory_df.apply(
+        lambda row: '🔴 부족' if row['current_stock'] < row['min_stock'] 
+        else '🟡 보통' if row['current_stock'] < row['max_stock'] * 0.7 
+        else '🟢 충분', axis=1
+    )
+    
+    inventory_df['reorder_needed'] = inventory_df['current_stock'] < inventory_df['min_stock']
+    inventory_df['stock_value'] = inventory_df['current_stock'] * inventory_df['unit_price']
+    
+    # 재고 현황 요약
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        total_products = len(inventory_df)
+        st.metric("총 제품 수", f"{total_products}개")
+    
+    with col2:
+        low_stock_count = len(inventory_df[inventory_df['reorder_needed']])
+        st.metric("재주문 필요", f"{low_stock_count}개", delta=f"-{low_stock_count}" if low_stock_count > 0 else "0")
+    
+    with col3:
+        total_value = inventory_df['stock_value'].sum()
+        st.metric("총 재고 가치", f"£{total_value:,.2f}")
+    
+    with col4:
+        avg_stock_level = inventory_df['current_stock'].mean()
+        st.metric("평균 재고 수량", f"{avg_stock_level:.0f}개")
+    
+    # 필터 및 정렬 옵션
+    st.markdown("---")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        category_filter = st.selectbox(
+            "카테고리 필터",
+            ["전체"] + sorted(inventory_df['category'].unique().tolist())
+        )
+    
+    with col2:
+        status_filter = st.selectbox(
+            "재고 상태 필터",
+            ["전체", "🔴 부족", "🟡 보통", "🟢 충분"]
+        )
+    
+    with col3:
+        sort_option = st.selectbox(
+            "정렬 기준",
+            ["제품명", "재고량 낮은순", "재고량 높은순", "재고가치 높은순"]
+        )
+    
+    # 데이터 필터링
+    filtered_df = inventory_df.copy()
+    
+    if category_filter != "전체":
+        filtered_df = filtered_df[filtered_df['category'] == category_filter]
+    
+    if status_filter != "전체":
+        filtered_df = filtered_df[filtered_df['stock_status'] == status_filter]
+    
+    # 정렬
+    if sort_option == "재고량 낮은순":
+        filtered_df = filtered_df.sort_values('current_stock', ascending=True)
+    elif sort_option == "재고량 높은순":
+        filtered_df = filtered_df.sort_values('current_stock', ascending=False)
+    elif sort_option == "재고가치 높은순":
+        filtered_df = filtered_df.sort_values('stock_value', ascending=False)
+    else:
+        filtered_df = filtered_df.sort_values('product_name')
+    
+    # 재고 현황 테이블
+    st.subheader("📋 재고 현황")
+    
+    # 재주문 알림
+    if low_stock_count > 0:
+        st.error(f"🚨 **재주문 필요**: {low_stock_count}개 제품의 재고가 부족합니다!")
+        
+        urgent_products = inventory_df[inventory_df['reorder_needed']]['product_name'].tolist()
+        st.write("**재주문 필요 제품:**")
+        for product in urgent_products[:5]:  # 상위 5개만 표시
+            st.write(f"• {product}")
+        if len(urgent_products) > 5:
+            st.write(f"• ... 외 {len(urgent_products)-5}개 제품")
+    
+    # 재고 테이블 표시
+    display_columns = [
+        'product_name', 'category', 'current_stock', 'min_stock', 'max_stock', 
+        'stock_status', 'unit_price', 'stock_value', 'supplier'
+    ]
+    
+    display_df = filtered_df[display_columns].copy()
+    display_df.columns = [
+        '제품명', '카테고리', '현재재고', '최소재고', '최대재고', 
+        '상태', '단가(£)', '재고가치(£)', '공급업체'
+    ]
+    
+    # 재고가치 포맷팅
+    display_df['단가(£)'] = display_df['단가(£)'].apply(lambda x: f"£{x:.2f}")
+    display_df['재고가치(£)'] = display_df['재고가치(£)'].apply(lambda x: f"£{x:.2f}")
+    
+    st.dataframe(display_df, use_container_width=True, height=400)
+    
+    # 재고 분석 차트
+    st.markdown("---")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("📊 카테고리별 재고 분포")
+        
+        category_summary = inventory_df.groupby('category').agg({
+            'current_stock': 'sum',
+            'stock_value': 'sum'
+        }).round(2)
+        
+        st.bar_chart(category_summary['current_stock'])
+        
+        # 상세 정보
+        for category, data in category_summary.iterrows():
+            st.write(f"• **{category.split('-')[0]}**: {data['current_stock']}개 (£{data['stock_value']:,.2f})")
+    
+    with col2:
+        st.subheader("⚠️ 재주문 우선순위")
+        
+        # 재주문 우선순위 계산 (재고 부족률 기준)
+        inventory_df['shortage_ratio'] = (inventory_df['min_stock'] - inventory_df['current_stock']) / inventory_df['min_stock']
+        priority_df = inventory_df[inventory_df['reorder_needed']].sort_values('shortage_ratio', ascending=False)
+        
+        if len(priority_df) > 0:
+            for idx, row in priority_df.head(10).iterrows():
+                shortage_pct = max(0, row['shortage_ratio'] * 100)
+                st.write(f"**{row['product_name']}**")
+                st.write(f"└ 현재: {row['current_stock']}개 / 필요: {row['min_stock']}개")
+                st.write(f"└ 부족률: {shortage_pct:.1f}%")
+                st.progress(min(shortage_pct / 100, 1.0))
+                st.write("")
+        else:
+            st.success("🎉 모든 제품의 재고가 충분합니다!")
+    
+    # 재고 관리 액션
+    st.markdown("---")
+    st.subheader("🛠️ 재고 관리 액션")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.button("📤 재주문 리스트 생성", type="primary"):
+            if low_stock_count > 0:
+                reorder_df = inventory_df[inventory_df['reorder_needed']].copy()
+                reorder_df['recommended_order'] = reorder_df['max_stock'] - reorder_df['current_stock']
+                reorder_df['estimated_cost'] = reorder_df['recommended_order'] * reorder_df['unit_price']
+                
+                st.success("재주문 리스트가 생성되었습니다!")
+                
+                summary_df = reorder_df[['product_name', 'supplier', 'current_stock', 'recommended_order', 'estimated_cost']].copy()
+                summary_df.columns = ['제품명', '공급업체', '현재재고', '주문수량', '예상비용(£)']
+                summary_df['예상비용(£)'] = summary_df['예상비용(£)'].apply(lambda x: f"£{x:.2f}")
+                
+                st.dataframe(summary_df)
+                
+                total_cost = reorder_df['estimated_cost'].sum()
+                st.info(f"📊 **총 주문 예상 비용**: £{total_cost:,.2f}")
+            else:
+                st.info("현재 재주문이 필요한 제품이 없습니다.")
+    
+    with col2:
+        if st.button("📊 재고 보고서 다운로드"):
+            csv_data = inventory_df.to_csv(index=False, encoding='utf-8-sig')
+            st.download_button(
+                label="CSV 다운로드",
+                data=csv_data,
+                file_name=f'pet_inventory_report_{pd.Timestamp.now().strftime("%Y%m%d")}.csv',
+                mime='text/csv'
+            )
+    
+    with col3:
+        if st.button("🔔 알림 설정"):
+            st.info("""
+            **재고 알림 설정**
+            • 재고 부족 시 자동 알림
+            • 주간 재고 현황 리포트
+            • 공급업체별 주문 알림
+            """)
+
 # 파일 업로드 기능
 st.sidebar.markdown("---")
 st.sidebar.subheader("📂 데이터 업로드")
@@ -810,7 +1048,7 @@ with st.sidebar.expander("❓ 사용법 안내"):
     
     **🎯 개인 고객 분석**: 특정 고객의 상세한 구매 패턴을 분석합니다.
     - 🏠 예상 가구수
-    - 🐾 반려동물 유형 (소형견/중형견/대형견, 새끼고양이/성묘)
+    - 🐾 반려동물 유형 (소형견/중형견/대형견, 새끼고양이/성묘 등)
     - 📊 동일 빈도 그룹 내 비교 (펫지출, 총지출, 펫지출비율)
     - 🐾 함께 구매 펫 추천
     - 🛒 함께 구매 연관 제품
@@ -818,6 +1056,12 @@ with st.sidebar.expander("❓ 사용법 안내"):
     **📈 주기상향 추천**: 구매 빈도 상향을 위한 맞춤 추천을 제공합니다.
     
     **💰 수익 예측**: 주기상향 시나리오별 예상 수익을 계산합니다.
+    
+    **📦 재고관리**: 펫 관련 제품의 재고 현황을 관리합니다.
+    - 📋 실시간 재고 현황
+    - ⚠️ 재주문 알림 및 우선순위
+    - 📊 카테고리별 재고 분석
+    - 🛠️ 재주문 리스트 자동 생성
     """)
 
 # 푸터
